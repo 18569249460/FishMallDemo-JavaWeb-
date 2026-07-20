@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishshop.mapper.CartMapper">
+    <!-- 购物车映射：联表带出商品名称、价格、库存和主图，方便前端展示与库存提示。 -->
+    <resultMap id="CartResultMap" type="com.fishshop.entity.Cart">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="quantity" column="quantity"/>
+        <result property="productName" column="product_name"/>
+        <result property="productPrice" column="product_price"/>
+        <result property="productStock" column="product_stock"/>
+        <result property="productStatus" column="product_status"/>
+        <result property="productImageUrl" column="product_image_url"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 购物车列表常用字段。 -->
+    <sql id="CartColumns">
+        c.id, c.user_id, c.product_id, c.quantity, c.created_at, c.updated_at,
+        p.name AS product_name, p.price AS product_price, p.stock AS product_stock,
+        p.status AS product_status, p.image_url AS product_image_url
+    </sql>
+
+    <!-- 按购物车项 ID 查询，用于修改或删除前的归属校验。 -->
+    <select id="selectById" resultMap="CartResultMap">
+        SELECT <include refid="CartColumns"/>
+        FROM cart c
+        INNER JOIN product p ON p.id = c.product_id
+        WHERE c.id = #{id}
+    </select>
+
+    <!-- 查询某用户购物车中是否已有某商品，已有则累加数量而不是新增行。 -->
+    <select id="selectByUserIdAndProductId" resultMap="CartResultMap">
+        SELECT <include refid="CartColumns"/>
+        FROM cart c
+        INNER JOIN product p ON p.id = c.product_id
+        WHERE c.user_id = #{userId}
+          AND c.product_id = #{productId}
+    </select>
+
+    <!-- 查询当前用户购物车列表。 -->
+    <select id="selectByUserId" resultMap="CartResultMap">
+        SELECT <include refid="CartColumns"/>
+        FROM cart c
+        INNER JOIN product p ON p.id = c.product_id
+        WHERE c.user_id = #{userId}
+        ORDER BY c.id DESC
+    </select>
+
+    <!-- 按勾选的购物车项查询结算商品，并限制必须属于当前用户。 -->
+    <select id="selectByIds" resultMap="CartResultMap">
+        SELECT <include refid="CartColumns"/>
+        FROM cart c
+        INNER JOIN product p ON p.id = c.product_id
+        WHERE c.user_id = #{userId}
+          AND c.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 新增购物车项。 -->
+    <insert id="insert" parameterType="com.fishshop.entity.Cart" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO cart (user_id, product_id, quantity)
+        VALUES (#{userId}, #{productId}, #{quantity})
+    </insert>
+
+    <!-- 修改购物车数量，WHERE 带 user_id 防止越权修改。 -->
+    <update id="updateQuantity">
+        UPDATE cart
+        SET quantity = #{quantity}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <!-- 删除单个购物车项，WHERE 带 user_id 防止越权删除。 -->
+    <delete id="deleteById">
+        DELETE FROM cart
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </delete>
+
+    <!-- 下单成功后批量清理已结算的购物车项。 -->
+    <delete id="deleteByIds">
+        DELETE FROM cart
+        WHERE user_id = #{userId}
+          AND id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 商品被后台删除时清理相关购物车项。 -->
+    <delete id="deleteByProductId">
+        DELETE FROM cart
+        WHERE product_id = #{productId}
+    </delete>
+</mapper>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/mvc https://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <!-- 只扫描 Controller，保证 Web 层 Bean 与业务层 Bean 分工清晰。 -->
+    <context:component-scan base-package="com.fishshop.controller"/>
+    <!-- 扫描统一异常处理器等 Web 层公共组件。 -->
+    <context:component-scan base-package="com.fishshop.common"/>
+
+    <!-- 开启 @RequestMapping、@RequestBody、@ResponseBody、参数校验等 MVC 注解能力。 -->
+    <mvc:annotation-driven conversion-service="conversionService"/>
+    <!-- 静态资源或前端构建文件找不到 Controller 时交给默认 Servlet 处理。 -->
+    <mvc:default-servlet-handler/>
+
+    <!-- 类型转换服务，处理请求参数到 Java 类型的转换。 -->
+    <bean id="conversionService" class="org.springframework.format.support.FormattingConversionServiceFactoryBean"/>
+
+    <!-- 文件上传解析器：配合 web.xml 的 multipart-config，用于头像、商品等本地图片上传。 -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.support.StandardServletMultipartResolver"/>
+
+    <!-- 开发阶段允许 Vite 前端跨域访问后端 API。 -->
+    <mvc:cors>
+        <mvc:mapping path="/api/**"
+                     allowed-origins="http://localhost:5173"
+                     allowed-methods="GET,POST,PUT,DELETE,OPTIONS"
+                     allowed-headers="*"
+                     allow-credentials="true"
+                     max-age="3600"/>
+    </mvc:cors>
+
+    <!-- 登录拦截器：保护需要登录的 API，公开登录、注册、分类和商品浏览接口。 -->
+    <mvc:interceptors>
+        <mvc:interceptor>
+            <mvc:mapping path="/api/**"/>
+            <mvc:exclude-mapping path="/api/health"/>
+            <mvc:exclude-mapping path="/api/auth/**"/>
+            <mvc:exclude-mapping path="/api/categories/**"/>
+            <mvc:exclude-mapping path="/api/products/**"/>
+            <!-- 引用 Spring 容器中的 authInterceptor，避免手动 new 后依赖无法注入。 -->
+            <ref bean="authInterceptor"/>
+        </mvc:interceptor>
+    </mvc:interceptors>
+</beans>

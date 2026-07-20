@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishshop.mapper.OrderMapper">
+    <!-- 订单映射：联表带出用户昵称和手机号，便于后台订单列表展示。 -->
+    <resultMap id="OrderResultMap" type="com.fishshop.entity.Order">
+        <id property="id" column="id"/>
+        <result property="orderNo" column="order_no"/>
+        <result property="userId" column="user_id"/>
+        <result property="userNickname" column="user_nickname"/>
+        <result property="userPhone" column="user_phone"/>
+        <result property="receiverName" column="receiver_name"/>
+        <result property="receiverPhone" column="receiver_phone"/>
+        <result property="addressDetail" column="address_detail"/>
+        <result property="trackingNo" column="tracking_no"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 订单列表常用字段。 -->
+    <sql id="OrderColumns">
+        o.id, o.order_no, o.user_id, u.nickname AS user_nickname, u.phone AS user_phone,
+        o.receiver_name, o.receiver_phone, o.address_detail, o.tracking_no, o.total_amount,
+        o.status, o.created_at, o.updated_at
+    </sql>
+
+    <!-- 按订单 ID 查询详情基础信息。 -->
+    <select id="selectById" resultMap="OrderResultMap">
+        SELECT <include refid="OrderColumns"/>
+        FROM orders o
+        INNER JOIN `user` u ON u.id = o.user_id
+        WHERE o.id = #{id}
+    </select>
+
+    <!-- 按订单号查询，后续可用于订单号跳转或客服查询。 -->
+    <select id="selectByOrderNo" resultMap="OrderResultMap">
+        SELECT <include refid="OrderColumns"/>
+        FROM orders o
+        INNER JOIN `user` u ON u.id = o.user_id
+        WHERE o.order_no = #{orderNo}
+    </select>
+
+    <!-- 当前用户的订单列表，按下单时间倒序。 -->
+    <select id="selectByUserId" resultMap="OrderResultMap">
+        SELECT <include refid="OrderColumns"/>
+        FROM orders o
+        INNER JOIN `user` u ON u.id = o.user_id
+        WHERE o.user_id = #{userId}
+        ORDER BY o.id DESC
+    </select>
+
+    <!-- 管理端订单列表，支持按订单状态筛选。 -->
+    <select id="selectAll" resultMap="OrderResultMap">
+        SELECT <include refid="OrderColumns"/>
+        FROM orders o
+        INNER JOIN `user` u ON u.id = o.user_id
+        <where>
+            <if test="status != null">
+                AND o.status = #{status}
+            </if>
+        </where>
+        ORDER BY o.id DESC
+    </select>
+
+    <!-- 创建订单主表，订单商品快照由 OrderItemMapper 批量插入。 -->
+    <insert id="insert" parameterType="com.fishshop.entity.Order" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders (order_no, user_id, receiver_name, receiver_phone, address_detail, tracking_no, total_amount, status)
+        VALUES (#{orderNo}, #{userId}, #{receiverName}, #{receiverPhone}, #{addressDetail}, #{trackingNo}, #{totalAmount}, #{status})
+    </insert>
+
+    <!-- 状态流转使用 fromStatus 限制，保证只能按计划书要求的流程推进。 -->
+    <update id="updateStatus">
+        UPDATE orders
+        SET status = #{toStatus}
+        WHERE id = #{id}
+          AND status = #{fromStatus}
+    </update>
+
+    <!-- 管理员发货时记录物流单号，并推进到待收货。 -->
+    <update id="updateShip">
+        UPDATE orders
+        SET status = 1,
+            tracking_no = #{trackingNo}
+        WHERE id = #{id}
+          AND status = 0
+    </update>
+
+    <!-- 后台仪表盘统计订单总数。 -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(1) FROM orders
+    </select>
+
+    <!-- 后台仪表盘统计待发货等指定状态订单数。 -->
+    <select id="countByStatus" resultType="long">
+        SELECT COUNT(1)
+        FROM orders
+        WHERE status = #{status}
+    </select>
+
+    <!-- 统计当天订单总数，后台首页“订单处理”占比使用当天数据。 -->
+    <select id="countToday" resultType="long">
+        SELECT COUNT(1)
+        FROM orders
+        WHERE DATE(created_at) = CURDATE()
+    </select>
+
+    <!-- 统计当天指定状态订单数，例如当天待发货订单。 -->
+    <select id="countTodayByStatus" resultType="long">
+        SELECT COUNT(1)
+        FROM orders
+        WHERE DATE(created_at) = CURDATE()
+          AND status = #{status}
+    </select>
+
+    <!-- 近七天销量：按订单创建日期汇总订单商品数量，已取消订单不计入销量。 -->
+    <select id="selectRecentSales" resultType="com.fishshop.dto.SalesTrendDTO">
+        SELECT DATE_FORMAT(o.created_at, '%Y-%m-%d') AS date,
+               COALESCE(SUM(oi.quantity), 0) AS sales
+        FROM orders o
+        INNER JOIN order_item oi ON oi.order_id = o.id
+        WHERE DATE(o.created_at) &gt;= #{startDate}
+          AND o.status != 3
+        GROUP BY DATE_FORMAT(o.created_at, '%Y-%m-%d')
+        ORDER BY date ASC
+    </select>
+</mapper>

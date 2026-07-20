@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.fishshop.mapper.UserAddressMapper">
+    <!-- 常用收货地址映射。 -->
+    <resultMap id="UserAddressResultMap" type="com.fishshop.entity.UserAddress">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="receiverName" column="receiver_name"/>
+        <result property="receiverPhone" column="receiver_phone"/>
+        <result property="addressDetail" column="address_detail"/>
+        <result property="isDefault" column="is_default"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="AddressColumns">
+        id, user_id, receiver_name, receiver_phone, address_detail, is_default, created_at, updated_at
+    </sql>
+
+    <select id="selectById" resultMap="UserAddressResultMap">
+        SELECT <include refid="AddressColumns"/>
+        FROM user_address
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByUserId" resultMap="UserAddressResultMap">
+        SELECT <include refid="AddressColumns"/>
+        FROM user_address
+        WHERE user_id = #{userId}
+        ORDER BY is_default DESC, id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.fishshop.entity.UserAddress" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_address (user_id, receiver_name, receiver_phone, address_detail, is_default)
+        VALUES (#{userId}, #{receiverName}, #{receiverPhone}, #{addressDetail}, #{isDefault})
+    </insert>
+
+    <update id="update" parameterType="com.fishshop.entity.UserAddress">
+        UPDATE user_address
+        SET receiver_name = #{receiverName},
+            receiver_phone = #{receiverPhone},
+            address_detail = #{addressDetail},
+            is_default = #{isDefault}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM user_address
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </delete>
+
+    <update id="clearDefault">
+        UPDATE user_address
+        SET is_default = 0
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="setDefault">
+        UPDATE user_address
+        SET is_default = 1
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+</mapper>

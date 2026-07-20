@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <settings>
+        <!-- 数据库字段 user_id 自动映射到 Java 属性 userId，减少 resultMap 中的重复配置。 -->
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+        <!-- SQL 日志交给 SLF4J，再由 Log4j2 统一输出。 -->
+        <setting name="logImpl" value="SLF4J"/>
+    </settings>
+</configuration>
